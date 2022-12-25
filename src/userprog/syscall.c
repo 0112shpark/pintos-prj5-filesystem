@@ -133,10 +133,10 @@ void exit (int status)
 }
 pid_t exec (const char *cmd_line){
   
-  lock_acquire(&file_);
+ // lock_acquire(&file_);
   //printf("executing.. %s\n", thread_name());
   pid_t pid = (pid_t)process_execute(cmd_line);
-  lock_release(&file_);
+  //lock_release(&file_);
   return pid;
 }
 int wait (pid_t pid)
@@ -179,18 +179,18 @@ int write(int fd, const void *buffer, unsigned size)
   {
     exit(-1);
   }
-  //lock_acquire(&file_);
+  lock_acquire(&file_);
   is_useradd(buffer);
   if(fd == 1){
     putbuf(buffer, size);
-    //lock_release(&file_);
+    lock_release(&file_);
     return size;
   }
   else if(fd >2)
   {
     if(thread_current()->fd[fd] == NULL)
     {
-      //lock_release(&file_);
+      lock_release(&file_);
       exit(-1);
     }
     if(thread_current()->fd[fd]->deny_write)
@@ -199,10 +199,10 @@ int write(int fd, const void *buffer, unsigned size)
       file_deny_write(thread_current()->fd[fd]);
     }
     return_val = file_write(thread_current()->fd[fd], buffer, size);
-    //lock_release(&file_);
+    lock_release(&file_);
     return return_val;
   }
- //lock_release(&file_);
+ lock_release(&file_);
   return -1;
 }
 bool create (const char *file, unsigned initial_size){
@@ -210,9 +210,9 @@ bool create (const char *file, unsigned initial_size){
   if(file == NULL){
     exit(-1);
   }
-  lock_acquire(&file_);
+  //lock_acquire(&file_);
   return_val = filesys_create(file, initial_size);
-  lock_release(&file_);
+  //lock_release(&file_);
   return return_val;
 }
 bool remove (const char *file){

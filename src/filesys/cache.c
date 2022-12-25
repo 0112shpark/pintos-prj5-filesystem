@@ -4,6 +4,7 @@
 #include <list.h>
 #include "threads/malloc.h"
 #include "threads/thread.h"
+#include "free-map.h"
 
 // cache를 위한 pointer
 void * cache_ptr;
@@ -46,7 +47,7 @@ bool buffer_cache_read(block_sector_t sector_index, void *buffer, off_t read_byt
         buffer_entry->disk_sector = sector_index;
         buffer_entry->valid_bit = false;
         //disk에서부터 load
-        printf("D\n");
+        //printf("D\n");
         block_read(fs_device, sector_index, buffer_entry->buffer);
      }
 
@@ -72,9 +73,9 @@ bool buffer_cache_write(block_sector_t sector_index, void *buffer, off_t written
         buffer_entry->disk_sector = sector_index;
         buffer_entry->valid_bit = false;
         // block에 write
-        printf("DDSS\n");
+        //printf("DDSS\n");
         block_write(fs_device, sector_index, buffer_entry->buffer);
-        printf("write done\n");
+        //printf("write done\n");
     }
     memcpy(buffer_entry->buffer + sector_ofs, buffer + written_bytes, size);
     lock_acquire(&buffer_entry->buffer_cache_lock);
@@ -115,7 +116,7 @@ struct buffer_cache_entry *buffer_cache_select_victim(void){
         
         //1이면 0 으로 변경
         if(cache[i].reference_bit){
-            cache[i].reference_bit = false;
+            cache[i].reference_bit = 0;
         }
         else{
             //dirty bit이 설정되어 있으면 disk에 write
@@ -125,7 +126,7 @@ struct buffer_cache_entry *buffer_cache_select_victim(void){
             cache[i].disk_sector = -1;
             cache[i].reference_bit = false;
             cache[i].valid_bit = true;
-            cache[i].dirty_bit = false;
+            //cache[i].dirty_bit = false;
             return &cache[i];
         }
     }
@@ -145,7 +146,7 @@ void buffer_cache_flush_all(void){
     for(int i = 0; i<NUM_CACHE; i++){
         if(cache[i].dirty_bit){
             if(!cache[i].valid_bit){
-                buffer_cache_flush_entry(i);
+                buffer_cache_flush_entry(&cache[i]);
             }
         }
     }
