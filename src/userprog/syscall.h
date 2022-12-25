@@ -20,6 +20,7 @@ unsigned tell (int fd);
 void close (int fd);
 int fibonacci(int n);
 int max_of_four_int(int a, int b, int c, int d);
+bool isdir(int fd);
 
 
 #endif /* userprog/syscall.h */

@@ -97,7 +97,7 @@ byte_to_sector (const struct inode_disk *inode_disk, off_t pos)
   }
   else if(sec_lev.level == 1){
     //indirect
-    indirect = (struct indirect_block*)calloc (1, BLOCK_SECTOR_SIZE);
+    indirect = calloc (1, BLOCK_SECTOR_SIZE);
     
     //block에서 읽기&채우기
     if(indirect){
@@ -110,8 +110,8 @@ byte_to_sector (const struct inode_disk *inode_disk, off_t pos)
   }
   else if(sec_lev.level == 2){
     //double indirect
-    indirect = (struct indirect_block*)calloc (1, BLOCK_SECTOR_SIZE);
-    double_indirect = (struct indirect_block*)calloc (1, BLOCK_SECTOR_SIZE);
+    indirect = calloc (1, BLOCK_SECTOR_SIZE);
+    double_indirect = calloc (1, BLOCK_SECTOR_SIZE);
 
     //block에서 읽기&채우기
     if(indirect && double_indirect){
@@ -383,7 +383,7 @@ inode_init (void)
    Returns true if successful.
    Returns false if memory or disk allocation fails. */
 bool
-inode_create (block_sector_t sector, off_t length)
+inode_create (block_sector_t sector, off_t length, uint32_t is_dir)
 {
   struct inode_disk *disk_inode = NULL;
   bool success = false;
@@ -401,6 +401,7 @@ inode_create (block_sector_t sector, off_t length)
       
       disk_inode->length = length;
       disk_inode->magic = INODE_MAGIC;
+      disk_inode->is_dir = is_dir;
       if(length>0){
         //block의 크기가 0이 아니므로
         //새 block할당
@@ -641,4 +642,16 @@ inode_length (const struct inode *inode)
   struct inode_disk inode_disk;
   buffer_cache_read(inode->sector, &inode_disk, 0, BLOCK_SECTOR_SIZE, 0);
   return inode_disk.length;
+}
+
+//isdir syscall을 위한 함수
+bool inode_isdir(const struct inode *inode){
+
+  struct inode_disk inode_disk;
+  disk_inode_get(inode, &inode_disk);
+  if(inode_disk.is_dir){
+    return true;
+  }
+  else
+    return false;
 }

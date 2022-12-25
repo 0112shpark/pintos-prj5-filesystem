@@ -275,6 +275,7 @@ process_exit (void)
      to the kernel-only page directory. */
   pd = cur->pagedir;
   
+  dir_close(cur->dir);
   if (pd != NULL) 
     {
       /* Correct ordering here is crucial.  We must set

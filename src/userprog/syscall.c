@@ -111,6 +111,11 @@ syscall_handler (struct intr_frame *f )
       is_useradd(f->esp+4);
       f->eax = tell((int)*(uint32_t*)(f->esp+4));
       break;
+    case SYS_ISDIR:
+      is_user_vaddr(f->esp+4);
+      f->eax = isdir((int)*(uint32_t*)(f->esp+4));
+      break;
+
 
   }
 }
@@ -304,6 +309,15 @@ void close (int fd)
   file_close(thread_current()->fd[fd]);
   thread_current()->fd[fd] = NULL;
   //lock_release(&file_);
+
+}
+
+bool isdir(int fd){
+  
+  if(thread_current()->fd[fd]==NULL){
+    return false;
+  }
+  return inode_isdir(thread_current()->fd[fd]);
 
 }
 int fibonacci(int n)

@@ -8,6 +8,7 @@
 #include "filesys/directory.h"
 #include "filesys/cache.h"
 #include "threads/thread.h"
+#include "filesys/inode.h"
 
 /* Partition that contains the file system. */
 struct block *fs_device;
@@ -31,6 +32,7 @@ filesys_init (bool format)
     do_format ();
 
   free_map_open ();
+  thread_current()->dir = dir_open_root();
 }
 
 /* Shuts down the file system module, writing any unwritten data
@@ -49,11 +51,14 @@ filesys_done (void)
 bool
 filesys_create (const char *name, off_t initial_size) 
 {
+  //파일 이름을 저장할 변수
+  char file[strlen(name)+1];
   block_sector_t inode_sector = 0;
-  struct dir *dir = dir_open_root ();
+  struct dir *dir = get_path(name, file);
+
   bool success = (dir != NULL
                   && free_map_allocate (1, &inode_sector)
-                  && inode_create (inode_sector, initial_size)
+                  && inode_create (inode_sector, initial_size,0)
                   && dir_add (dir, name, inode_sector));
   if (!success && inode_sector != 0) 
     free_map_release (inode_sector, 1);
@@ -104,4 +109,63 @@ do_format (void)
     PANIC ("root directory creation failed");
   free_map_close ();
   printf ("done.\n");
+}
+
+//input을 절대경로, 상대경로로 parse
+struct dir* get_path(char *name, char* file){
+
+  struct dir *dir = NULL;
+  struct inode *inode;
+  char *token;
+  char *nextToken;
+  char *temp;
+
+  //error handling
+  if(!name || !file || strlen(name) == 0 ){
+    return NULL;
+  }
+
+  char copy_name[strlen(name)+1];
+  strlcpy(copy_name, name, strlen(name)+1);
+
+  //절대경로
+  if(copy_name[0] == '/'){
+    dir = dir_open_root();
+  }
+  else 
+    dir = dir_reopen(thread_current()->dir);
+  
+  // /로 parsing
+  token = strtok_r(copy_name, "/", &temp);
+  nextToken = strtok_r(NULL, "/", &temp);
+
+  // /가 없을때 까지 parsing
+  while(token && nextToken){
+    
+    inode = NULL;
+    //dir이 아닐경우
+    if(!dir_lookup(dir, token, &inode)){
+      dir_close(dir);
+      return NULL;
+    }
+    // dir inode가 아닐경우
+    if(!inode_isdir(inode)){
+      dir_close(dir);
+      return NULL;
+    }
+    dir_close(dir);
+    dir = dir_open(inode);
+    token = nextToken;
+    nextToken = strtok_r(NULL, "/", &temp);
+  }
+  //마지막은 file이름, file이름 저장
+  if(token){
+    strlcpy(file, token, strlen(token)+1);
+  }
+  else{
+    //파일이 /로끝남->마지막 dir return
+    strlcpy(file, ".", 2);
+  }
+  return dir;
+
 }
