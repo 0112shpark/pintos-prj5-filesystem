@@ -21,6 +21,10 @@ void close (int fd);
 int fibonacci(int n);
 int max_of_four_int(int a, int b, int c, int d);
 bool isdir(int fd);
+bool chdir(const char *dir);
+bool mkdir(const char *dir);
+bool readdir(int fd, char *name);
+int inumber(int fd);
 
 
 #endif /* userprog/syscall.h */

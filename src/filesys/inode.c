@@ -515,8 +515,9 @@ inode_remove (struct inode *inode)
   inode->removed = true;
 }
 
-
-
+bool is_removed(struct inode *inode){
+  return inode->removed;
+}
 
 /* Reads SIZE bytes from INODE into BUFFER, starting at position OFFSET.
    Returns the number of bytes actually read, which may be less
@@ -655,3 +656,8 @@ bool inode_isdir(const struct inode *inode){
   else
     return false;
 }
+
+block_sector_t get_inumber(const struct inode *inode){
+  return inode->sector;
+}
+

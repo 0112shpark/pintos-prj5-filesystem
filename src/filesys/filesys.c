@@ -56,16 +56,23 @@ filesys_create (const char *name, off_t initial_size)
   block_sector_t inode_sector = 0;
   struct dir *dir = get_path(name, file);
 
+  //유효하지 않은 dir
+  if(dir != NULL && is_removed(dir_get_inode(dir))){
+    dir_close(dir);
+    return false;
+  }  
   bool success = (dir != NULL
                   && free_map_allocate (1, &inode_sector)
+                  && inode_sector <4095
                   && inode_create (inode_sector, initial_size,0)
-                  && dir_add (dir, name, inode_sector));
+                  && dir_add (dir, file, inode_sector));
   if (!success && inode_sector != 0) 
     free_map_release (inode_sector, 1);
   dir_close (dir);
 
   return success;
 }
+
 
 /* Opens the file with the given NAME.
    Returns the new file if successful or a null pointer
@@ -75,11 +82,20 @@ filesys_create (const char *name, off_t initial_size)
 struct file *
 filesys_open (const char *name)
 {
-  struct dir *dir = dir_open_root ();
+  
+  char file[strlen(name)+1];
+  struct dir *dir = get_path(name, file);
   struct inode *inode = NULL;
+  struct inode *temp = dir_get_inode(dir);
+  
 
+  //유효하지 않은 inode
+  if(dir != NULL && is_removed(temp)){
+    dir_close(dir);
+    return NULL;
+  }
   if (dir != NULL)
-    dir_lookup (dir, name, &inode);
+    dir_lookup (dir, file, &inode);
   dir_close (dir);
 
   return file_open (inode);
@@ -92,21 +108,44 @@ filesys_open (const char *name)
 bool
 filesys_remove (const char *name) 
 {
-  struct dir *dir = dir_open_root ();
-  bool success = dir != NULL && dir_remove (dir, name);
-  dir_close (dir); 
+  char file[strlen(name)+1];
+  struct dir *dir = get_path(name, file);
 
+  struct inode *inode;
+  //dir 검색
+  dir_lookup(dir, file, &inode);
+
+  struct dir *isdir = NULL;
+  char temp[strlen(name)+1];
+  //dir이 아니거나 dir이면 열려있는 dir인지 확인
+  bool success = false;
+  if(!inode_isdir(inode)||((isdir = dir_open(inode)) && ! dir_readdir(isdir, temp))){
+     success = dir != NULL && dir_remove (dir, file);
+  }
+  dir_close (dir); 
+  
+  if(isdir){
+    dir_close(isdir);
+  }
   return success;
 }
-
+
 /* Formats the file system. */
 static void
 do_format (void)
 {
+
+  struct dir *root_dir = dir_open_root();
+  //struct inode *root_inode = dir_get_inode(root_dir);
+  
   printf ("Formatting file system...");
   free_map_create ();
   if (!dir_create (ROOT_DIR_SECTOR, 16))
     PANIC ("root directory creation failed");
+  
+  // .과 ..dir 만들기
+  dir_add(root_dir, ".", ROOT_DIR_SECTOR);
+  dir_add(root_dir, "..", ROOT_DIR_SECTOR);
   free_map_close ();
   printf ("done.\n");
 }
@@ -127,7 +166,7 @@ struct dir* get_path(char *name, char* file){
 
   char copy_name[strlen(name)+1];
   strlcpy(copy_name, name, strlen(name)+1);
-
+  //printf("parsing\n");
   //절대경로
   if(copy_name[0] == '/'){
     dir = dir_open_root();
@@ -168,4 +207,45 @@ struct dir* get_path(char *name, char* file){
   }
   return dir;
 
+}
+
+bool filesys_mkdir(const char* name){
+
+
+  //printf("%s\n", name);
+  if(name == NULL){
+    return false;
+  }
+  char file[strlen(name)+1];
+  struct inode *inode;
+  struct dir* dir = get_path(name, file);
+  //printf("D\n");
+  //같은 이름이 존재하면 실패
+  if(dir_lookup(dir, file, &inode)){
+    return false;
+  }
+  //printf("dd\n");
+  block_sector_t inode_sector;
+
+
+  bool success = (dir != NULL
+                  && free_map_allocate (1, &inode_sector)
+                  && dir_create (inode_sector, 16)
+                  && dir_add (dir, file, inode_sector));
+  if (!success && inode_sector != 0) 
+    free_map_release (inode_sector, 1);
+  //printf("2\n");
+  if(success){
+    struct dir *dot_dir = dir_open(inode_open(inode_sector));
+
+    if(!dir_add (dot_dir, ".", inode_sector)){
+      return false;
+    }
+    if(!dir_add(dot_dir, "..", get_inumber(dir_get_inode(dir)))){
+      return false;
+    }
+    dir_close(dot_dir);
+  }
+  dir_close(dir);
+  return success;
 }

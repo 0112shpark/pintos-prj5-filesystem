@@ -115,7 +115,23 @@ syscall_handler (struct intr_frame *f )
       is_user_vaddr(f->esp+4);
       f->eax = isdir((int)*(uint32_t*)(f->esp+4));
       break;
-
+    case SYS_CHDIR:
+      is_useradd(f->esp+4);
+      f->eax = chdir((const char*)*(uint32_t*)(f->esp+4));
+      break;
+    case SYS_MKDIR:
+      is_useradd(f->esp+4);
+      f->eax = mkdir((const char*)*(uint32_t*)(f->esp+4));
+      break;
+    case SYS_READDIR:
+      is_useradd(f->esp+4);
+      is_useradd(f->esp+8);
+      f->eax = readdir((int)*(uint32_t*)(f->esp+4),(char*)*(uint32_t*)(f->esp+8));
+      break;
+    case SYS_INUMBER:
+      is_user_vaddr(f->esp+4);
+      f->eax = inumber((int)*(uint32_t*)(f->esp+4));
+      break;
 
   }
 }
@@ -180,6 +196,7 @@ int write(int fd, const void *buffer, unsigned size)
 {
   int return_val;
   //printf("\nWrite\n");
+  struct inode *inode;
   if(buffer == NULL)
   {
     exit(-1);
@@ -198,6 +215,13 @@ int write(int fd, const void *buffer, unsigned size)
       lock_release(&file_);
       exit(-1);
     }
+    //쓰려는 파일이 dir인경우
+    inode = file_get_inode(thread_current()->fd[fd]);
+    if(inode_isdir(inode)){
+      lock_release(&file_);
+      exit(-1);
+    }
+
     if(thread_current()->fd[fd]->deny_write)
     {
       //printf("\ndenied!\n");
@@ -225,9 +249,9 @@ bool remove (const char *file){
   if(file == NULL){
     exit(-1);
   }
-  lock_acquire(&file_);
+  //lock_acquire(&file_);
   return_val = filesys_remove(file);
-  lock_release(&file_);
+  //lock_release(&file_);
   return return_val;
 }
 int open (const char *file)
@@ -317,8 +341,70 @@ bool isdir(int fd){
   if(thread_current()->fd[fd]==NULL){
     return false;
   }
-  return inode_isdir(thread_current()->fd[fd]);
+  return inode_isdir(file_get_inode(thread_current()->fd[fd]));
 
+}
+
+bool chdir(const char *dir){
+
+  struct file *f = filesys_open(dir);
+  struct inode *inode;
+
+  //주어진 문자열이 긴 경로일 경우
+  if(dir_lookup(thread_current()->dir, dir, &inode)){
+    dir_close(thread_current()->dir);
+    thread_current()->dir = dir_open(inode);
+    return true;
+  }
+  else if(f  != NULL){
+    //하나의 directory일 경우
+    dir_close(thread_current()->dir);
+    thread_current()->dir = dir_open(file_get_inode(f));
+    return true;
+  }
+  return false;
+}
+
+bool mkdir(const char *dir){
+
+  //유효하지 않은 dir 이름
+  //printf("dir = %s\n", dir);
+  if(dir == NULL ||strlen(dir)==0){
+    return false;
+  }
+  return filesys_mkdir(dir);
+}
+
+bool readdir(int fd, char *name){
+
+  struct file *f = thread_current()->fd[fd];
+  if(f == NULL){
+    return false;
+  }
+  struct inode *inode = file_get_inode(f);
+  if(!inode_isdir(inode)){
+    //dir이 아니라면
+    return false;
+  }
+  //struct dir *dir = dir_open(inode);
+  struct dir *dir = (struct dir *)f;
+  bool res = dir_readdir(dir, name);
+  if(!dir) return false;
+
+  // .과 .. 제외
+  while(strcmp(name, ".") == 0 || strcmp(name, "..") == 0){
+    if(res == false) break;
+    res = dir_readdir(dir, name);
+  }
+  return res;
+
+}
+
+int inumber(int fd){
+
+  struct file *f = thread_current()->fd[fd];
+  if(f == NULL) return -1;
+  return get_inumber(file_get_inode(f));
 }
 int fibonacci(int n)
 {
