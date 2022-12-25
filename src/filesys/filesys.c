@@ -117,7 +117,7 @@ filesys_remove (const char *name)
 
   struct dir *isdir = NULL;
   char temp[strlen(name)+1];
-  //dir이 아니거나 dir이면 열려있는 dir인지 확인
+  //dir이 아니거나 dir이면 존재하는지 dir인지 확인
   bool success = false;
   if(!inode_isdir(inode)||((isdir = dir_open(inode)) && ! dir_readdir(isdir, temp))){
      success = dir != NULL && dir_remove (dir, file);
