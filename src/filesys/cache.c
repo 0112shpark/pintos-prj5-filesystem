@@ -74,7 +74,7 @@ bool buffer_cache_write(block_sector_t sector_index, void *buffer, off_t written
         buffer_entry->valid_bit = false;
         // block에 write
         //printf("DDSS\n");
-        block_write(fs_device, sector_index, buffer_entry->buffer);
+        block_read(fs_device, sector_index, buffer_entry->buffer);
         //printf("write done\n");
     }
     memcpy(buffer_entry->buffer + sector_ofs, buffer + written_bytes, size);
