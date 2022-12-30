@@ -40,7 +40,7 @@ tid_t process_execute(const char *file_name)
     return TID_ERROR;
   strlcpy(fn_copy, file_name, PGSIZE);
 
-  /* exit에서 thread name을 받기위해 명령어만 따로 parsing*/
+  /* exit에서 thread name을 받기위해서 명령어만 따로 parsing*/
   strlcpy(command, fn_copy, strlen(fn_copy) + 1);
   int j = 0;
   while (1)
